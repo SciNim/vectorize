@@ -88,17 +88,12 @@ func init*[N, T](_: type VecIntrin[N, T], values: static array[N, T]): VecIntrin
 # Public routines
 # -------------------------------------------------------------------------------
 
-{.push inline.}
-
-
-
 func `$`*[N, T](vec: VecIntrin[N, T]): string =
   ## Display a vector
   $cast[array[N, T]](vec)
 
 # Arithmetic
 # -------------------------------------------------------------------------------
-
 
 func `+`*(a, b: VecIntrin): VecIntrin =
   ## Vector addition
