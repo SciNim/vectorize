@@ -5,6 +5,7 @@ jobs:
   build:
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         branch: [version-1-2, devel]
         target:
