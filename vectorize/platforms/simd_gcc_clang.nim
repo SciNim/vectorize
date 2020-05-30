@@ -12,39 +12,19 @@
 # ############################################################
 
 static: doAssert: defined(gcc) or defined(clang)
-import macros
+import
+  # Standard library
+  std/[strutils, os, macros]
 
 # FFI
 # -------------------------------------------------------------------------------
 
-proc strType(BaseType: typedesc): string =
-  when BaseType is SomeSignedInt:
-    when BaseType is int:
-      "NI"
-    else:
-      "NI" & $(sizeof(BaseType) * 8)
-  elif BaseType is SomeUnsignedInt:
-    when BaseType is uint:
-      "NU"
-    else:
-      "NU" & $(sizeof(BaseType) * 8)
-  elif BaseType is float32:
-    "float"
-  elif BaseType is (float or float64):
-    "double"
-  else:
-    {.error: "Unreachable".}
+const headerPath = currentSourcePath.rsplit(DirSep, 1)[0]
 
-template emitType*(NumElements: static int, BaseType: typedesc): untyped =
-  # typedef float float32x8 __attribute__ ((vector_size (32)));
-  {.emit:["typedef ", static(strType(BaseType)), " ", $BaseType, "x", $NumElements, " __attribute__ ((vector_size (", $(sizeof(BaseType) * NumElements), ")));"].}
-
-  # ".} # - Stops highlighting madness in VSCode
+{.pragma: vec_intrin, bycopy, importc, header: headerPath/"simd_gcc_clang_ffi.h".}
 
 template declType(NumElements: static int, BaseType: typedesc): untyped {.dirty.}=
-  emitType(NumElements, BaseType)
-
-  type `BaseType x NumElements`* {.importc, bycopy.} = object
+  type `BaseType x NumElements`* {.vec_intrin.} = object
     # TODO: should be private
     buf: array[NumElements, BaseType]
 
@@ -73,72 +53,82 @@ macro dispatch*(N: static int, T: type SomeNumber): untyped =
   result = bindSym($BaseT & "x" & $N)
 
 type
-  VecIntrin*[N: static int, T: SomeNumber] = dispatch(N, T)
+  VecIntrin*[N: static int, T: SomeNumber] = object
+    v: dispatch(N, T)
+    ## GCC/Clang vector intrinsics
+    # Note: SIMD should be passed-by-value for compiler optimization
+    # hence the bycopy pragma
+
+{.push inline.}
+
+# Initialization
+# -------------------------------------------------------------------------------
+# TODO: there is no way to construct a vector from an array
+# in a platform independent way ¯\_(ツ)_/¯
+# So we only support static construction
+
+macro cName(N: static int, T: type SomeNumber): untyped =
+  let BaseT = getTypeInst(T)[1]
+  result = newLit($BaseT & "x" & $N)
+
+func construct[N, T](values: static array[N, T]): string =
+  result.add "{"
+  for i, value in values:
+    if i != 0:
+      result.add ", "
+    result.add $value
+  result.add "}"
+
+func init*[N, T](_: type VecIntrin[N, T], values: static array[N, T]): VecIntrin[N, T] {.noInit.} =
+  const
+    vecName = cName(N, T)
+    constructor = construct(values)
+  {.emit:[result.v, " = (", vecName, ")", constructor, ";"].}
 
 # Public routines
 # -------------------------------------------------------------------------------
 
-template simdTypedefs*(): untyped {.dirty.} =
-  ## Defines the SIMD types for the current module
-  # TODO: workarounds upon workarounds
-  # This shouldn't be needed
-  emitType(4, int32)
-  emitType(8, int32)
-  emitType(16, int32)
-
-  emitType(2, int64)
-  emitType(4, int64)
-  emitType(8, int64)
-
-  emitType(4, float32)
-  emitType(8, float32)
-  emitType(16, float32)
-
-  emitType(2, float64)
-  emitType(4, float64)
-  emitType(8, float64)
-
 {.push inline.}
+
+
 
 func `$`*[N, T](vec: VecIntrin[N, T]): string =
   ## Display a vector
   $cast[array[N, T]](vec)
 
-func init*[N, T](_: VecIntrin[N, T], values: array[N, T]): VecIntrin[N, T] =
-  {.emit: "result = values;".}
+# Arithmetic
+# -------------------------------------------------------------------------------
 
-func init*[N, T](_: VecIntrin[N, T], broadcastedValue: T): VecIntrin[N, T] =
-  {.emit: "result = broadcastedValue;".}
 
 func `+`*(a, b: VecIntrin): VecIntrin =
   ## Vector addition
   # Note: we rely on Nim keeping the result/a/b symbols the same in C,
   # otherwise emit is really verbose
-  {.emit: "result = a + b;".}
+  {.emit: "result.v = a.v + b.v;".}
 
 func `-`*(a, b: VecIntrin): VecIntrin =
   ## Vector addition
   # Note: we rely on Nim keeping the result/a/b symbols the same in C,
   # otherwise emit is really verbose
-  {.emit: "result = a - b;".}
+  {.emit: "result.v = a.v - b.v;".}
 
 func `*`*(a, b: VecIntrin): VecIntrin =
   ## Vector addition
   # Note: we rely on Nim keeping the result/a/b symbols the same in C,
   # otherwise emit is really verbose
-  {.emit: "result = a * b;".}
+  {.emit: "result.v = a.v * b.v;".}
 
 func cos*[N; T: SomeFloat](a: VecIntrin[N, T]): VecIntrin[N, T] =
   ## Vector cos
   # Note: we rely on Nim keeping the result/a/b symbols the same in C,
   # otherwise emit is really verbose
-  {.emit: "result = cos(a);".}
+  {.emit: "result.v = cos(a.v);".}
 
 func sin*[N; T: SomeFloat](a: VecIntrin[N, T]): VecIntrin[N, T] =
   ## Vector cos
   # Note: we rely on Nim keeping the result/a/b symbols the same in C,
   # otherwise emit is really verbose
-  {.emit: "result = sin(a);".}
+  {.emit: "result.v = sin(a.v);".}
 
 # Sanity checks
 # -------------------------------------------------------------------------------
