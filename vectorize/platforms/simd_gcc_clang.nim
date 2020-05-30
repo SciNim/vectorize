@@ -5,9 +5,16 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-static: doAssert: defined(gcc) or defined(clang)
+# ############################################################
+#
+#              GCC and Clang Vector Extension
+#
+# ############################################################
 
-# GCC and Clang Vector Extension
+static: doAssert: defined(gcc) or defined(clang)
+import macros
+
+# FFI
 # -------------------------------------------------------------------------------
 
 proc strType(BaseType: typedesc): string =
@@ -28,54 +35,68 @@ proc strType(BaseType: typedesc): string =
   else:
     {.error: "Unreachable".}
 
-template emitType(NumElements: static int, BaseType: typedesc): untyped {.dirty.}=
+template emitType*(NumElements: static int, BaseType: typedesc): untyped =
   # typedef float float32x8 __attribute__ ((vector_size (32)));
   {.emit:["typedef ", static(strType(BaseType)), " ", $BaseType, "x", $NumElements, " __attribute__ ((vector_size (", $(sizeof(BaseType) * NumElements), ")));"].}
+
+  # ".} # - Stops highlighting madness in VSCode
+
+template declType(NumElements: static int, BaseType: typedesc): untyped {.dirty.}=
+  emitType(NumElements, BaseType)
 
   type `BaseType x NumElements`* {.importc, bycopy.} = object
     # TODO: should be private
     buf: array[NumElements, BaseType]
 
-emitType(4, int32)
-emitType(8, int32)
-emitType(16, int32)
+declType(4, int32)
+declType(8, int32)
+declType(16, int32)
 
-emitType(2, int64)
-emitType(4, int64)
-emitType(8, int64)
+declType(2, int64)
+declType(4, int64)
+declType(8, int64)
 
-emitType(4, float32)
-emitType(8, float32)
-emitType(16, float32)
+declType(4, float32)
+declType(8, float32)
+declType(16, float32)
 
-emitType(2, float64)
-emitType(4, float64)
-emitType(8, float64)
+declType(2, float64)
+declType(4, float64)
+declType(8, float64)
 
-template dispatch*(N: static int, T: type SomeNumber): typedesc =
-  # TODO: should be private
-  # Workarounds upon workarounds ...
-  when T is int:
-    `intx N`
-  elif T is uint:
-    `uintx N`
-  elif T is int32:
-    `int32x N`
-  elif T is uint32:
-    `uint32x N`
-  elif T is int64:
-    `int64x N`
-  elif T is uint64:
-    `uint64x N`
-  elif T is float32:
-    `float32x N`
-  elif T is float64:
-    `float64x N`
-  else:
-    {.error: "Unsupported".}
+# Type declaration
+# -------------------------------------------------------------------------------
+
+{.experimental: "dynamicBindSym".}
+macro dispatch*(N: static int, T: type SomeNumber): untyped =
+  let BaseT = getTypeInst(T)[1]
+  result = bindSym($BaseT & "x" & $N)
 
 type
   VecIntrin*[N: static int, T: SomeNumber] = dispatch(N, T)
+
+# Public routines
+# -------------------------------------------------------------------------------
+
+template simdTypedefs*(): untyped {.dirty.} =
+  ## Defines the SIMD types for the current module
+  # TODO: workarounds upon workarounds
+  # This shouldn't be needed
+  emitType(4, int32)
+  emitType(8, int32)
+  emitType(16, int32)
+
+  emitType(2, int64)
+  emitType(4, int64)
+  emitType(8, int64)
+
+  emitType(4, float32)
+  emitType(8, float32)
+  emitType(16, float32)
+
+  emitType(2, float64)
+  emitType(4, float64)
+  emitType(8, float64)
 
 {.push inline.}
 

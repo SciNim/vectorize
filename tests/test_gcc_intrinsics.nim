@@ -8,22 +8,24 @@
 import
   ../vectorize/platforms/simd_gcc_clang
 
-func checkEq[N, T](a, b: VecIntrin[N, T]): bool =
-  cast[array[N, T]](a) == cast[array[N, T]](b)
+simdTypedefs()
 
-proc test_smoke() =
-  var v: VecIntrin[4, float32]
+# func checkEq[N, T](a, b: VecIntrin[N, T]): bool =
+#   cast[array[N, T]](a) == cast[array[N, T]](b)
 
-# proc test_init() =
-#   let v = VecIntrin[4, float32].init [float32 0, 1, 2, 3]
+# proc test_smoke() =
+#   var v: VecIntrin[4, float32]
 
-# proc test_add() =
-#   let v = VecIntrin[4, float32].init [float32 0, 1, 2, 3]
-#   let w = VecIntrin[4, float32].init [float32 3, 2, 1, 0]
+# # proc test_init() =
+# #   let v = VecIntrin[4, float32].init [float32 0, 1, 2, 3]
 
-#   let expected = VecIntrin[4, float32].init [float32 3, 3, 3, 3]
-#   checkEq(v+w, expected)
+# # proc test_add() =
+# #   let v = VecIntrin[4, float32].init [float32 0, 1, 2, 3]
+# #   let w = VecIntrin[4, float32].init [float32 3, 2, 1, 0]
 
-test_smoke()
-# test_init()
-# test_add()
+# #   let expected = VecIntrin[4, float32].init [float32 3, 3, 3, 3]
+# #   checkEq(v+w, expected)
+
+# test_smoke()
+# # test_init()
+# # test_add()
