@@ -22,3 +22,6 @@ proc test(flags, path: string) =
   echo "Running [ ", lang, " ", flags, " ] ", path
   echo "========================================================================================"
   exec "nim " & lang & " " & flags & " --verbosity:0 --hints:off --warnings:off --threads:on -d:release --stacktrace:on --linetrace:on --outdir:build -r " & path
+
+task test, "Run Vectorize tests":
+  test "", "tests/test_gcc_intrinsics.nim"
