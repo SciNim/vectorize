@@ -50,7 +50,7 @@ jobs:
           - target:
               os: windows
             builder: windows-2019
-    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (${{ matrix.branch }})'
+    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.target.TEST_LANG }} (${{ matrix.branch }})'
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Checkout vectorize
