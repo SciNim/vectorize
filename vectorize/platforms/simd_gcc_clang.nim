@@ -21,7 +21,7 @@ import
 
 const headerPath = currentSourcePath.rsplit(DirSep, 1)[0]
 
-{.pragma: vec_intrin, bycopy, importc, header: headerPath/"simd_gcc_clang_ffi.h".}
+{.pragma: vec_intrin, importc, header: headerPath/"simd_gcc_clang_ffi.h".}
 
 template declType(NumElements: static int, BaseType: typedesc): untyped {.dirty.}=
   type `BaseType x NumElements`* {.vec_intrin.} = object
@@ -56,9 +56,8 @@ type
   VecIntrin*[N: static int, T: SomeNumber] = object
     v: dispatch(N, T)
     ## GCC/Clang vector intrinsics
-    # Note: SIMD should be passed-by-value for compiler optimization
-    # hence the bycopy pragma
 
+# SIMD should be all inlined
 {.push inline.}
 
 # Initialization
